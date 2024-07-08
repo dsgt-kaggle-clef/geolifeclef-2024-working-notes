@@ -1,0 +1,10 @@
+\section{Introduction}
+
+GeoLifeCLEF \cite{geolifeclef2024} is a task organized within the LifeCLEF lab \cite{lifeclef2024} at the CLEF 2024 conference, with the objective of predicting which plant species are present and absent in specific locations given spatial and temporal remote sensing data. 
+Modeling species density distributions can be helpful in biodiversity management and conservation.
+
+We explore methods to solve the posed multi-label classification task and incorporate unsupervised methods to build useful representations from the data. 
+We propose a pipeline that pre-computes tiles from raw GeoTIFF images and stores a compressed version on disk to speed up the training process.
+We utilize metadata to build baseline geolocation models and indices for nearest-neighbor queries.
+Our models utilize convolutional neural networks to exploit spatial information, spectral representations, and co-located bands of remote sensing data.
+We also explore the use of unsupervised methods to learn representations for knowledge transfer between two different datasets with similar semantics.

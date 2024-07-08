@@ -1,0 +1,167 @@
+\section{Models}
+
+\subsection{Nearest Neighbor Model}
+
+We generate predictions by querying the LSH model built on survey site locations across presence-only and presence-absent datasets in a 50km radius.
+For each survey site, we limit either the number of neighbors or the distance to the nearest neighbor.
+Our nearest neighbor models (NN) consider all neighbors within a 5km, 10km, and 50km radius.
+The k nearest neighbors model (k-NN) considers the top 10 neighbors for each survey site and all of the species reported in the neighbors.
+
+\subsection{Geolocation Model}
+
+We model the relationship between geospatial metadata (i.e. projected latitude and longitude) and the species labels.
+We learn a linear and non-linear multi-label classification problem, and treat this model as a baseline for remote-sensing based models.
+The linear model uses a single linear layer that maps the feature space into the output space.
+The nonlinear model uses a two-layer model, with a $\mathcal{R}^{256}$ latent space in the first layer and a linear layer to map to the output space.
+We add random noise to latitude and longitude with a mean of 5km to increase generalization.
+
+\subsubsection{Tile CNN Model}
+\label{sec:tile-cnn}
+
+The processed remote-sensing data are represented by a multi-dimensional array with one indexing dimension for the layer type and two spatial dimensions, making this a natural fit for CNNs.
+We pre-process satellite and raster data by generating 128x128 pixel tiles, then applying the 2D-DCT to filter the 8x8 coefficients representing the lowest spatial frequencies.
+We use the coefficients as inputs to a CNN model that learns a mapping to a multi-label classification task.
+We additionally run a few experiments where we apply the inverse 2D-DCT to the coefficients to recover a multi-layer 128x128 pixel image.
+We learn models on the presence-absent dataset, since the dataset is representative of the test.
+
+We build CNN models that convolve input layers with a 3x3 kernel with padding, followed by a 1x1 convolution and linear layer to map into latent space.
+We map the latent space to a linear layer with the number of classes as the output space.
+Batch normalization is applied at every convolution for numerical stability and ReLU activation for nonlinearities.
+We also experiment with alternative parameterizations of the network, notably replacing the custom CNN with a pre-packaged efficientnetv2 backbone.
+
+We experiment with several models that take in different input data.
+The simplest model uses RGB-NIR satellite imagery in four channels.
+We then incorporate the 13 MODIS landcover layers and 19 bio-climatic rasters.
+We then hand-choose specific layers from the rasters to remove redundancy, specifically layers 9, 10, and 11 from MODIS and the years 2001, 2010, and 2019 from the bio-climatic rasters.
+The other layers of the MODIS dataset correspond to legacy classification schemes and confidence bands, which are likely not useful to our model.
+We choose three bands from bio-climatic rasters since the years are evenly spaced across the set.
+
+We built a model using the provided time-series RGB-SWIR data.
+We reused the same architecture as the satellite imagery data by reshaping the first 64 coefficients of the time-series DCT into an 8x8 tensor and then applied the same convolutional layers.
+The semantics are not necessarily the same as the 2D-DCT coefficients, but we hypothesize learned structure from this basis despite the lack of spatial symmetry.
+
+\subsubsection{Tile2Vec Model}
+
+Tile2Vec \cite{jean2019tile2vec} is a self-supervised learning technique that learns embeddings of tiles of satellite imagery.
+The Tile2Vec model utilizes a spatially-aware sampling procedure and triplet loss to learn a low-dimensional embedding that preserves metric distances via the triangle inequality.
+The triplet loss is $L(t_a, t_n, t_d)$ with a margin $m$ where $f_{\theta}$ maps data to a $d$-dimensional vector of real numbers using a model with parameters $\theta$. 
+
+\begin{equation}
+    L(t_a, t_n, t_d) = \left[
+        ||f_{\theta}(t_a) - f_{\theta}(t_n)||_2
+        - ||f_{\theta}(t_a) - f_{\theta}(t_d)||_2
+        +m
+    \right]_+
+\end{equation}
+
+We obtain triplets from the presence-only datasets by querying the LSH model to sample one million pairs of tiles within 100km in the presence-only dataset.
+We generate a distant neighbor by randomly selecting a tile from dataloader batch.
+We train a tile2vec model using the CNN architecture described in section \ref{sec:tile-cnn} without a classifier head in $\mathcal{R}^{256}$ latent-space.
+We experiment with a multiobjective loss incorporating the sum of triplet and ASL losses, using labels for each survey site by aggregating all species within each site's radius.
+The classifier adds a linear layer to the learned latent space and training with the ASL loss on the presence-absent dataset.
+
+\subsection{Model Evaluation and Loss Functions}
+
+The competition uses the F1-micro score to evaluate models, and we use the same metric in training.
+We evaluated the model during training and validation using \texttt{MulticlassF1Score(average="micro")} from the \texttt{torchmetrics} library, with a 90-10 train-validation split of the presence-absent dataset.
+
+\subsubsection{Binary Cross-Entropy}
+
+Binary cross-entropy is a loss function used for binary classification.
+In a multi-label setting, each label as an independent binary classification problem.
+We use the loss function that accepts logits as input for numerical stability, which is necessary to achieve acceptable convergence.
+
+\begin{equation}
+L = -\sum_{c=1}^My_{o,c}\log(p_{o,c})
+\end{equation}
+
+\subsubsection{Asymmetric Loss (ASL)}
+
+The asymmetric loss \cite{ridnik2021asymmetric} penalizes false positives and false negatives differently from the binary cross-entropy loss.
+The loss is defined in terms of the probability of the network output $p$, and hyperparameters $\gamma_{+}$ and $\gamma_{-}$.
+Setting $\gamma_{+} > \gamma_{-}$ emphasizes positive examples, while setting both terms to 0 yields binary cross-entropy.
+Easy negative samples are dynamically down-weighted, and hard thresholded samples are ignored.
+
+\begin{equation}
+  ASL=\left\{
+    \begin{array}{l}
+      L_{+}=(1-p)^{\gamma_{+}} \log (p) \\
+      L_{-}=\left(p_m\right)^{\gamma_{-}} \log \left(1-p_m\right)
+    \end{array}\right.
+\end{equation}
+
+We sweep over parameters $\gamma_{+} \in \{0, 1\}$ and $\gamma_{-} \in \{0, 2, 4\}$.
+The default values are $\gamma_{+}=1$ and $\gamma_{-}=4$.
+
+\subsection{Hill Loss}
+
+The Hill loss \cite{zhang2021simple} is a loss function designed for robust multi-label classification with missing labels.
+The loss is defined as a weighted mean-squared error (MSE), where the weight modulates potential false negatives.
+
+\begin{equation}
+    \begin{aligned}
+    \mathcal{L}_{\text {Hill }}^{-} & =-w(p) \times M S E \\
+    & =-(\lambda-p) p^2 .
+    \end{aligned}
+\end{equation}
+
+The implementation provided by the authors provides the following form with default values of $\lambda=1.5$ and $\gamma=2$.
+
+\begin{equation}
+    \mathcal{L}_{\text {Hill }}^{-} = y \times (1-p_{m})^\gamma\log(p_{m}) + (1-y) \times -(\lambda-p){p}^2
+\end{equation}
+
+\subsubsection{sigmoidF1}
+
+The sigmoidF1 loss \cite{benedict2021sigmoidf1} optimizes the F1 score directly by creating a differentiable approximation of the F1 score.
+We first define the terms true positive, false positive, false negative, and true negative as a function of the sigmoid function.
+
+\begin{equation}
+  \begin{aligned}
+  & \widetilde{t p}=\sum \mathbf{S}(\hat{\mathbf{y}}) \odot \mathbf{y} \quad
+  \tilde{f p}=\sum \mathbf{S}(\hat{\mathbf{y}}) \odot(\mathbbm{1}-\mathbf{y})
+  \\
+  & \tilde{f n} =\sum(\mathbbm{1}-\mathbf{S}(\hat{\mathbf{y}})) \odot \mathbf{y} \quad
+  \tilde{t n}=\sum(\mathbbm{1}-\mathbf{S}(\hat{\mathbf{y}})) \odot(\mathbbm{1}-\mathbf{y})
+  \end{aligned}
+\end{equation}
+
+where $\mathbf{S}(\hat{\mathbf{y}})$ is the sigmoid function applied to the model's output $\hat{\mathbf{y}}$.
+
+\begin{equation}
+  S(u ; \beta, \eta)=\frac{1}{1+\exp (-\beta(u+\eta))}
+\end{equation}
+
+Then we define the F1 score as a function of the true positive, false positive, and false negative terms.
+
+\begin{equation}
+  \mathcal{L}_{\widetilde{F 1}}=1-\widetilde{F 1}, \quad \text { where } \quad \widetilde{F 1}=\frac{2 \widetilde{t p}}{2 \widetilde{t p}+\widetilde{f n}+\widetilde{f p}}
+\end{equation}
+
+We are given two hyper-parameter $S=-\beta$ and $E=\eta$.
+For tuning, we sweep over parameters $S \in \{-1, -15, -30\}$ and $E \in \{0, 1\}$ as suggested in the author's experiments.
+The default values are $S=-1$ and $E=0$.
+
+
+
+% \begin{table}
+%     \centering
+%     \caption{Counts of euclidean distances within 10km}
+%     \begin{tabular}{|c|c|}
+%         \hline
+%         \textbf{Distance (10km)} & \textbf{Count} \\
+%         \hline
+%         0.0 & 318,011,094 \\
+%         10,000.0 & 146,144,208 \\
+%         20,000.0 & 117,410,260 \\
+%         30,000.0 & 99,743,946 \\
+%         40,000.0 & 85,627,662 \\
+%         50,000.0 & 75,692,624 \\
+%         60,000.0 & 73,006,062 \\
+%         70,000.0 & 65,306,260 \\
+%         80,000.0 & 58,686,854 \\
+%         90,000.0 & 52,680,442 \\
+%         100,000.0 & 23,886,432 \\
+%         \hline
+%     \end{tabular}
+% \end{table}

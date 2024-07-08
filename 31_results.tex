@@ -1,0 +1,167 @@
+\section{Results}
+
+We report the performance of our models using the hidden test set on the Kaggle competition leaderboard.
+For torch-based models, predictions are made in two ways: top-k and threshold.
+The top-k method selects the top-k species with the highest probability, while the threshold method selects species with a probability greater than a threshold.
+We set k to 20 and the threshold to 0.5 for all relevant models.
+
+\subsection{Nearest Neighbor Model}
+
+We report nearest neighbor models in table \ref{tab:nn}.
+The k-NN models perform better than our NN models, probably due to filtering out noise from different thresholds.
+We observe that when we do not limit by the number of neighbors, larger distance thresholds lead to worse performance, with a difference of 0.10 to 0.08 when going from 5km to 50km.
+The opposite is true once we keep the top 10 neighbors, where there is a small improvement in score as we increase the distance threshold.
+
+\begin{table}[h]
+    \caption{
+        Nearest neighbor Kaggle leaderboard scores using the LSH model on survey site distances in kilometers.
+        We use cutoffs of 5km, 10km, and 50km to limit the number of neighbors.
+        The k-NN model limits the number of neighbors to the top 10.
+    }
+    \label{tab:nn}
+    \begin{tabular}{|l|l|l|}
+    \hline
+    \textbf{model} & \textbf{private} & \textbf{public} \\ \hline
+    NN 50km         & 0.08638          & 0.08785         \\ \hline
+    NN 10km         & 0.10719          & 0.10149         \\ \hline
+    NN 5km          & 0.11059          & 0.10718         \\ \hline
+    k-NN 50km        & 0.12919          & 0.1251          \\ \hline
+    k-NN 10km        & 0.12545          & 0.11998         \\ \hline
+    k-NN 5km         & 0.12219          & 0.11746         \\ \hline
+    \end{tabular}%
+\end{table}
+
+\subsection{Geolocation Model}
+
+The projected latitude and longitude provide a relatively strong signal for the multi-label species classification tasks, with a score of 0.161 on the public leaderboard when using the top-k results in table \ref{tab:cnn}.
+Our experiments show that the linear model performs poorly as per table \ref{tab:losses}.
+However, adding a non-linear layer to the model increases the performance by a large margin.
+For example, models trained with BCE loss without class weights go from 0.03 to 0.14 when adding a nonlinear layer.
+
+During training of BCE models, we observed that while the loss was decreasing between training and validation sets, the validation F1 score would peak on the first epoch and then decrease over time.
+We suspect that BCE loss has difficulty with the class imbalance even when explicit class weights are given.
+ASL increases the validation scores by a wide margin, likely because of the dynamic weighting behavior.
+Although the Hill and sigmoidF1 losses report improvements over ASL in the experimental setting in the literature, we find that default hyperparameters perform worse than BCE loss.
+It is possible hyper-parameter tuning could increase performance over ASL.
+For the rest of the experiments, we focus on ASL as the primary loss due to its performance and robust parameterization.
+
+\begin{table}[h]
+    \caption{
+        Scores for different losses on geolocation based models.
+        The scores provided are collected from late submissions on the public leaderboard using the threshold method of prediction.
+    }
+    \label{tab:losses}
+    \centering
+    \begin{tabular}{|l|l|l|}
+    \hline
+    \textbf{Loss}               & \textbf{linear} & \textbf{nonlinear} \\ \hline
+    BCE (weights= True)             & 0.0259          & 0.14523            \\ \hline
+    BCE (weights=False)              & 0.03011         & 0.14398            \\ \hline
+    ASL ($\gamma_{-}=4, \gamma_{+}=1$) & 0.00042         & 0.15768            \\ \hline
+    ASL ($\gamma_{-}=4, \gamma_{+}=0$) & 0.00169         & 0.15619            \\ \hline
+    ASL ($\gamma_{-}=2, \gamma_{+}=1$) & 0.00064         & 0.14963            \\ \hline
+    ASL ($\gamma_{-}=2, \gamma_{+}=0$) & 0.0008          & 0.15414            \\ \hline
+    ASL ($\gamma_{-}=0, \gamma_{+}=1$) & 0.00635         & 0.14873            \\ \hline
+    ASL ($\gamma_{-}=0, \gamma_{+}=0$) & 0.00029         & 0.15793            \\ \hline
+    Hill ($\lambda=1.5$)                  & 0.0048          & 0.14867            \\ \hline
+    sigmoidF1 (E=1 S=-30)          & 0.00046         & 0.0014             \\ \hline
+    sigmoidF1 (E=1 S=-15)          & 0.00404         & 0.00106            \\ \hline
+    sigmoidF1 (E=1 S=-1)          & 0.00015         & 0.05031            \\ \hline
+    sigmoidF1 (E=0 S=-30)          & 0.00146         & 0.03082            \\ \hline
+    sigmoidF1 (E=0 S=-15)          & 0.00047         & 0.03917            \\ \hline
+    sigmoidF1 (E=0 S=-1)          & 0.00177         & 0.0439             \\ \hline
+    \end{tabular}
+\end{table}
+
+For BCE models, we find that adding a class weight that is proportional to the normalized frequency in the dataset does not improve performance of the model.
+It's possible that these weights are not computed correctly, but ASL provides a dynamic weighting mechanism that is far more effective when the number of classes is large.
+
+For our ASL models, we find that the best hyper-parameters are $\gamma_{-}=0$ and $\gamma_{+}=0$ on the public leaderboard, but the default value of $\gamma_{-}=4$ and $\gamma_{+}=1$ works just as well.
+This score performs better than the BCE model, despite claims that setting values of $\gamma_{-}$ and $\gamma_{+}$ to zero would lead to a model that is equivalent to the BCE model.
+We note that if we had to choose hyperparameters for ASL through a validation set, it's possible that we could choose one that would be sub-optimal for the test set.
+We choose to use the default values for the rest of our experimentation.
+
+The Hill loss performs between BCE and ASL in the non-linear model, and so we do not consider it further given the performance of ASL.
+The sigmoidF1 loss performs the worst out of all of the losses, despite the tuning in the ranges provided by the literature.
+
+\begin{table}[h]
+    \caption{
+        Kaggle private and public leaderboard scores for torch-based models.
+        The models are trained on the presence-absent dataset.
+    }
+    \label{tab:cnn}
+    \centering
+    \begin{tabular}{|l|l|l|}
+    \hline
+    \textbf{model}     & \textbf{private} & \textbf{public} \\ \hline
+    Geolocation ASL Top-k       & 0.16047          & 0.16128         \\ \hline
+    Geolocation ASL Threshold     & 0.13395          & 0.13734         \\ \hline
+    RGB-IR Top-k     & 0.16229          & 0.16108         \\ \hline
+    RGB-IR Threshold   & 0.15217          & 0.15096         \\ \hline
+    RGB-IR Landcover Top-k   & 0.01986          & 0.02096         \\ \hline
+    RGB-IR Landcover Threshold & 0.02545          & 0.0255          \\ \hline
+    Time-series Top-k            & 0.10497          & 0.10392         \\ \hline
+    Time-series Threshold          & 0.08444          & 0.0832          \\ \hline
+    Tile2Vec RGB-IR Top-k      & 0.14071          & 0.13943         \\ \hline
+    Tile2Vec RGB-IR Threshold    & 0.12989          & 0.12701         \\ \hline
+    Tile2Vec RGB-IR Top-k      & 0.14448          & 0.13832         \\ \hline
+    Tile2Vec RGB-IR Threshold    & 0.13318          & 0.12438         \\ \hline
+    \end{tabular}%
+    \end{table}
+
+\subsection{Tile CNN Models}
+
+We report minor improvements in the performance of the geolocation model, with our best model utilizing satellite imagery at 0.161 on the public leaderboard in table \ref{tab:cnn}.
+However, training a model on the presence-absent dataset is difficult due to model convergence to a minima.
+This behavior is most prevalent in the efficientnetv2 backbone, where the larger parameter space and domain-specific preprocessing distortion lead to suboptimal convergence.
+
+The first 13 channels of the landcover raster to the RGB-NIR channels does not converge to a useful model.
+We find that our performance drops down to 0.02 when we try to utilize these features.
+Keeping the subset of features from landcover aids in a model that performs relatively well but lacks large improvements over the RGB-NIR model.
+
+The time series model learns some structure despite the strange input representation with a score of 0.10 on the public leaderboard.
+
+\subsection{Tile2Vec Model}
+
+Tile2vec learns a useful representation that leads to smooth convergence of downstream classifiers.
+We observe convergence occurring within four epochs in our experimental setting, and the increase in the F1 metric for both validation and training sets increases monotonically on the classifier.
+In contrast, models without tile2vec backbone have validation F1 scores that fluctuate, typically within the first five epochs, and then decrease over time.
+The learned predictions are marginally less effective than learning the CNN model directly on the presence-absent dataset.
+
+When we trained the model with ASL as part of the optimization objective, we observed that the triplet loss term no longer decreased monotonically over time.
+Instead, it sharply decreased to a minimum, increased, and decreased slowly over time.
+The behavior is likely due to the difference in magnitude of the triplet loss and the ASL loss.
+The triplet loss is normalized, while the ASL loss is not, so the ASL hyperparameter dominates the gradient updates.
+This version of the model performs better on the transfer learning task to present-absent data than the triplet loss alone.
+
+\subsection{Competition Performance}
+
+Our best models are reported against the public leaderboard in table \ref{tab:leaderboard}.
+The best score of the competition is 0.4089, while baseline models provided by the competition organizers lies around 0.25.
+Our models lie between the granular and coarse-grain frequency-based models.
+
+\begin{table}[h]
+    \caption{
+        Kaggle private and public leaderboard scores with best models compared to baselines and top teams.
+        Models included in the results are post-competition submissions.
+    }
+    \label{tab:leaderboard}
+    \begin{tabular}{|l|l|}
+    \hline
+    \textbf{Name}                                             & \textbf{Public} \\ \hline
+    Rank 1 - webmaking                                        & 0.4089          \\ \hline
+    Rank 2 - AI2Lab                                           & 0.36837         \\ \hline
+    Baseline with Landsat Cubes                               & 0.26576         \\ \hline
+    Baseline with Bioclimatic Cubes                           & 0.2594          \\ \hline
+    Baseline with Sentinel Images                             & 0.23629         \\ \hline
+    Top-25 species per district \& biogeographical zones (PA) & 0.20302         \\ \hline
+    Top-25 species per Country/Region (PA)                    & 0.17514         \\ \hline
+    (Ours) Geolocation ASL Topk                                              & 0.16128         \\ \hline
+    (Ours) RGB-IR Top-k                                             & 0.16108         \\ \hline
+    (Ours) Tile2Vec RGB-IR Top-k                                             & 0.13943         \\ \hline
+    (Ours) k-NN 50k                                                   & 0.1251          \\ \hline
+    Top-25 species in Presence Absence                        & 0.11614         \\ \hline
+    Top-25 species in Presence Only                           & 0.08133         \\ \hline
+    \end{tabular}%
+\end{table}
+

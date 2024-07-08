@@ -4,101 +4,21 @@
 \usepackage{listings}
 \lstset{breaklines=true}
 \usepackage{graphicx}
+\usepackage{bbm}
 
 \begin{document}
 
-\copyrightyear{2024}
-\copyrightclause{Copyright for this paper by its authors.
-  Use permitted under Creative Commons License Attribution 4.0
-  International (CC BY 4.0).}
-
-\conference{CLEF 2024: Conference and Labs of the Evaluation Forum, September 9-12, 2023, Grenoble, France}
-
-\title{Tiled Raster Compression and Embeddings for Multilabel Classification in GeoLifeCLEF 2024}
-
-\author[1]{Anthony Miyaguchi}[
-orcid=0000-0002-9165-8718,
-email=acmiyaguchi@gatech.edu,
-]
-\cormark[1]
-\author[1]{Patcharapong Aphiwetsa}[
-email=paphiwetsa3@gatech.edu,
-]
-\author[1]{Mark McDuffie}[
-email=mmcduffie8@gatech.edu,
-]
-
-\address[1]{Georgia Institute of Technology, North Ave NW, Atlanta, GA 30332}
-\cortext[1]{Corresponding author.}
-
-\begin{abstract}
-In this paper, we explore methods to solve the multilabel classification task posed by the GeoLifeCLEF 2024 competition, which aims to predict the presence and absence of plant species at specific locations using spatial and temporal remote sensing data. 
-Our approach focuses on data preprocessing and the application of various modeling techniques to handle the sparse label space and computational challenges. 
-We employ unsupervised methods to build valuable data representations and experiment with several classical and neural network-based models.
-\end{abstract}
-
-\begin{keywords}
-  GeoLifeCLEF,
-  remote sensing,
-  contrastive learning,
-  multi-label classification
-\end{keywords}
-
+\input{00_preamble}
 
 \maketitle
 
-\section{Introduction}
+\input{10_intro}
+\input{20_overview}
+\input{30_experiments}
+\input{31_results.tex}
+\input{40_discussion}
+\input{50_outro}
 
-GeoLifeCLEF is a task organized within the LifeCLEF lab at the CLEF 2024 conference. 
-GeoLifeCLEF aims to predict what plant species are present and absent at a specific location given spatial and temporal remote sensing data. 
-Modeling species density distributions can be helpful in biodiversity management and conservation, among other things.
-
-In this project, we explore methods to solve the posed multi-label classification task and try to incorporate unsupervised methods for building valuable representations from the data. 
-Much of the work was focused on pre-processing the data from the competition for modeling and experimenting with various modeling approaches to deal with computational challenges related to the sparse label space.
-
-\input{data}
-\input{experiments}
-
-\section{Discussion}
-
-We find difficulty overcoming basic baselines in the competition.
-In particular, the frequency-based baseline submissions can be significantly more effective than solutions proposed in our research of the problem.
-These solutions are done by predicting the top 25 species at varying levels of locality (e.g. globally or regionally) and by dataset.
-However, we find that latitude and longitude are suprisingly predictive of plant species in the dataset given an appropriate loss function.
-Using these geospatial features provides a useful diagnostic for more complex datasets, since the number of input features are small and are easier to debug.
-
-\section{Future Work}
-
-We have explored a variety of techniques for finding useful representations of the data to model species distribution.
-One area for future work is to better capture nuance associated with the self-supervised representation learning of the tiles.
-We quickly reached a limit in how well the model could represent our training data, so it would be useful to rigorously explore alternative model parameterizations and hyperparameters for the various loss functions.
-Additionally, it is unclear how to best incorporate the many raster layers that are provided to us in the competition.
-Ideally we would be able to determine which layers are most important to the multi-label classification task, possibly through extensive ablation tesing of the features.
-
-We would also like to continue down network or graph models of the survey and species.
-There is a rich interconnection between sites and species where sparse co-occurances could be exploited through spatial locality.
-One way this could be done is through the construction of node features through message passing of survey site nearest neighbors.
-Graph neural networks could also prove to be an effective mechanism to generate useful embedding spaces by propagating information via diffusion.
-However, implementation of these techniques could prove to be challenging, especially since we failed to generate a survey embedding through the survey-species bipartite network due to computational constraints.
-
-Our findings indicate a significant variation in the occurrence of the labels, with some labels with less than 10 datapoints while others with more than 10,000. Thus, this cause bias, and imbalance in the training. A possible solution would be to bin the labels according to their frequency, so that each label is relatively in the same range in terms datapoints. This would also potentially allow us to utilize XGBoost, since it would reduce the number of classes needed to be classify.
-
-It would also be interesting to implement a proper model of the dynamics of the remote sensing data.
-We are able to build a useful spatial representation of satellite imagery, demonstrated by our experiments with tile2vec.
-It should be possible to model the linearized dynamics of a system by learning a Koopman operator that steps forward state-space from one timestep to another.
-We hypothesize that this could be done by conditioning the tile embeddings on evolutions of the state e.g. the 20 years of bio-climatic rasters and quarterly time series data.
-One potential way to do this is to learn a spatio-temporal embedding of the tiles via an explicit sequence model like a LSTM or transformer alongside methods to enforce the geographical distributional semantics afforded by tile embeddings.
-Another approach is to perform data-driven system identification to understand the dynamics of the bio-climatic rasters that have been embedded into the space, and to understand the governing equations of the system with a method like SINDy \cite{brunton2016discovering}.
-
-\section{Conclusions}
-
-In this study, we addressed the multi-label classification challenge of GeoLifeCLEF 2024, which aims to predict the presence or absence of plant species at specific locations based on spatial and temporal remote sensing data. 
-We explored various methods for pre-processing the provided datasets and experimented with multiple modeling approaches to tackle the inherent computational challenges and the sparse label space.
-
-\section*{Acknowledgements}
-
-Thank you to Professor Patricio Vela for supervising the project for Anthony Miyaguchi's ECE8903 Special Problems course at Georgia Tech.
-Also thank you to the DS@GT CLEF group for their support.
 
 \bibliography{main}
 

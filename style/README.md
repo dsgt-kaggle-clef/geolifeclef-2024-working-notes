@@ -20,3 +20,10 @@ use the makefile:
 
 `make`
 
+
+For the "minted" versions:
+
+1. `pdflatex -shell-escape sample-1col+minted`
+2. `pdflatex -shell-escape sample-2col+minted`
+
+

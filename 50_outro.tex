@@ -1,0 +1,14 @@
+\section{Conclusions}
+
+In this study, we addressed the multi-label classification challenge of GeoLifeCLEF 2024, which aims to predict the presence or absence of plant species at specific locations based on spatial and temporal remote sensing data. 
+We explored using a compressed version of the remote sensing data to train deep learning models, with varying levels of success.
+We take advantage of the geospatial nature of the data by building a neighborhood model with locality-sensitive hashing.
+Predictions from the neighborhood model perform better than some of the simplest frequency models made by the competition organizers.
+The neighborhood model is used as part of a self-supervised embedding model that learns a low-dimensional representation of the data that is effective for classification.
+Despite poor performance on the leaderboard, some of the ideas presented in this working note have potential for future work and have not been fully explored.
+Source code and models are available at \url{https://github.com/dsgt-kaggle-clef/geolifeclef-2024}.
+
+\section*{Acknowledgements}
+
+Thank you to Professor Patricio Vela for supervising the project for Anthony Miyaguchi's ECE8903 Special Problems course at Georgia Tech.
+Thank you to the DS@GT CLEF group for access to cloud computing resources through Google Cloud Platform, and for a supportive environment for collaboration.

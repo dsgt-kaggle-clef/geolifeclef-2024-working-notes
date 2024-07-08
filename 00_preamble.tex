@@ -1,0 +1,42 @@
+\copyrightyear{2024}
+\copyrightclause{Copyright for this paper by its authors.
+  Use permitted under Creative Commons License Attribution 4.0
+  International (CC BY 4.0).}
+
+\conference{CLEF 2024: Conference and Labs of the Evaluation Forum, September 9-12, 2024, Grenoble, France}
+
+\title{Tile Compression and Embeddings for Multi-Label Classification in GeoLifeCLEF 2024}
+
+\author[1]{Anthony Miyaguchi}[
+orcid=0000-0002-9165-8718,
+email=acmiyaguchi@gatech.edu,
+]
+\cormark[1]
+\author[1]{Patcharapong Aphiwetsa}[
+email=paphiwetsa3@gatech.edu,
+]
+\author[1]{Mark McDuffie}[
+email=mmcduffie8@gatech.edu,
+]
+
+\address[1]{Georgia Institute of Technology, North Ave NW, Atlanta, GA 30332}
+\cortext[1]{Corresponding author.}
+
+\begin{abstract}
+We explore methods to solve the multi-label classification task posed by the GeoLifeCLEF 2024 competition with the DS@GT team, which aims to predict the presence and absence of plant species at specific locations using spatial and temporal remote sensing data. 
+Our approach uses frequency-domain coefficients via the Discrete Cosine Transform (DCT) to compress and pre-compute the raw input data for convolutional neural networks.
+We also investigate nearest neighborhood models via locality-sensitive hashing (LSH) for prediction and to aid in the self-supervised contrastive learning of embeddings through tile2vec.
+Our best competition model utilized geolocation features with a leaderboard score of 0.152 and a best post-competition score of 0.161.
+Source code and models are available at \url{https://github.com/dsgt-kaggle-clef/geolifeclef-2024}.
+\end{abstract}
+
+\begin{keywords}
+  GeoLifeCLEF,
+  LifeCLEF,
+  remote sensing,
+  contrastive learning,
+  multi-label classification,
+  tile2vec,
+  discrete cosine transform,
+  locality-sensitive hashing
+\end{keywords}
